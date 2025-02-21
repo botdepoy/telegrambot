@@ -8,7 +8,7 @@ BOT_TOKEN = "7680394855:AAFVjKErGVwWg9bZ49BnChVgCLnv1xA3MRw"
 CHAT_ID = "8101143576"  # Your Telegram ID or group ID
 
 # 🔹 Form Web App URL
-WEB_APP_URL = "https://botdepoy.github.io/telegrambot/form.html"
+WEB_APP_URL = "https://botdepoy.github.io/telegrambot/index.html"
 
 # 🔹 Initialize Flask App
 app = Flask(__name__)
