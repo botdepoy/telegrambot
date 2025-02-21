@@ -36,10 +36,11 @@
             data.first_name = tg.initDataUnsafe?.user?.first_name || "N/A";
 
             // Send data to bot server
-            fetch("https://your-render-url.com/submit", {
+            fetch("https://testbot-f4jj.onrender.com/submit", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data)
+            })
             }).then(response => response.json())
               .then(data => {
                   if (data.status === "success") {
