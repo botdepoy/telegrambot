@@ -32,13 +32,7 @@ async def run_bot():
 
     logger.info("Bot is running...")
 
-    try:
-        await app.initialize()  # Ensure the bot is properly initialized
-        await app.run_polling()  # Start the bot in polling mode
-    except Exception as e:
-        logger.error(f"Error occurred: {e}")
-    finally:
-        await app.shutdown()  # Ensure a clean shutdown
+
 
 if __name__ == "__main__":
     try:
