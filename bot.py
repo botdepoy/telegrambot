@@ -24,7 +24,7 @@ async def help_command(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text("Available commands:\n/start - Start the bot\n/help - Get help")
 
 async def run_bot():
-    """Start the bot properly without closing event loops."""
+    """Start the bot without closing the running event loop."""
     app = Application.builder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
@@ -33,20 +33,19 @@ async def run_bot():
     logger.info("Bot is running...")
 
     try:
-        await app.run_polling()
+        await app.initialize()  # Ensure the bot is properly initialized
+        await app.run_polling()  # Start the bot in polling mode
     except Exception as e:
         logger.error(f"Error occurred: {e}")
     finally:
-        await app.shutdown()
+        await app.shutdown()  # Ensure a clean shutdown
 
 if __name__ == "__main__":
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            logger.info("Event loop is already running, using create_task...")
-            loop.create_task(run_bot())  # Run bot in the existing event loop
-        else:
-            logger.info("No running event loop found, creating new event loop...")
-            loop.run_until_complete(run_bot())  # Start a new event loop
-    except RuntimeError:
-        asyncio.run(run_bot())  # Ensure proper execution
+        loop = asyncio.new_event_loop()  # Create a new event loop
+        asyncio.set_event_loop(loop)  # Set the new event loop
+        loop.run_until_complete(run_bot())  # Run bot in this event loop
+    except RuntimeError as e:
+        logger.error(f"Runtime error: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
