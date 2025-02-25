@@ -1,60 +1,93 @@
-from flask import Flask, request
-from telegram import Bot, Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import Updater, CommandHandler, CallbackContext
 import os
+import json
+import logging
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    filters,
+    ContextTypes,
+)
+from dotenv import load_dotenv
 
-# 🔹 Replace with your actual Telegram bot token and chat ID
-BOT_TOKEN = "7680394855:AAFVjKErGVwWg9bZ49BnChVgCLnv1xA3MRw"
-CHAT_ID = "8101143576"  # Your Telegram ID or group ID
+# Load environment variables
+load_dotenv()
 
-# 🔹 Form Web App URL
-WEB_APP_URL = "https://botdepoy.github.io/telegrambot/form.html"
+# Get Telegram Bot Token from Railway's environment variables
+TOKEN = os.getenv("TOKEN")  # Ensure TOKEN is set in Railway
 
-# 🔹 Initialize Flask App
-app = Flask(__name__)
-bot = Bot(token=BOT_TOKEN)
+# Enable logging
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
+# Store user IDs in a file
+USER_DATA_FILE = "user_ids.txt"
 
-def start(update: Update, context: CallbackContext):
-    """Handles /start command and displays a button to open the form."""
-    keyboard = [[InlineKeyboardButton("填写信息 (Fill Form)", web_app={"url": WEB_APP_URL})]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+# Load user IDs from file
+def load_user_ids():
+    if os.path.exists(USER_DATA_FILE):
+        with open(USER_DATA_FILE, "r") as file:
+            return set(file.read().splitlines())
+    return set()
 
-    update.message.reply_text("点击下方按钮填写信息 (Click the button below to fill out the form)", reply_markup=reply_markup)
+# Save user IDs to file
+def save_user_ids(user_ids):
+    with open(USER_DATA_FILE, "w") as file:
+        for user_id in user_ids:
+            file.write(f"{user_id}\n")
 
+# Command: /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.message.from_user.id)
+    user_ids = load_user_ids()
+    user_ids.add(user_id)
+    save_user_ids(user_ids)
 
-@app.route("/", methods=["GET"])
-def home():
-    return "Telegram Bot is Running 🚀"
+    menu_buttons = [
+        ["✈ 落地接机", "🔖 证照办理"],
+        ["🏤 房产凭租", "🏩 酒店预订"],
+        ["🍽️ 食堂信息", "📦 生活物资"],
+        ["🔔 后勤生活信息频道"]
+    ]
+    reply_markup = ReplyKeyboardMarkup(menu_buttons, resize_keyboard=True, one_time_keyboard=False)
+    await update.message.reply_text("欢迎使用亚太·亚通机器人！请选择一个选项：", reply_markup=reply_markup)
 
+# Command: /broadcast
+async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_ids = load_user_ids()
+    message = " ".join(context.args)
+    if not message:
+        await update.message.reply_text("用法: /broadcast <消息>")
+        return
 
-@app.route("/submit", methods=["POST"])
-def receive_form_data():
-    """Receives form submission and sends it to Telegram."""
-    data = request.json
+    for user_id in user_ids:
+        try:
+            await context.bot.send_message(chat_id=user_id, text=message)
+        except Exception as e:
+            logger.error(f"Failed to send message to {user_id}: {e}")
 
-    # Extract form data
-    name = data.get("name", "N/A")
-    email = data.get("email", "N/A")
-    user_id = data.get("user_id", "N/A")
-    username = data.get("username", "N/A")
-    first_name = data.get("first_name", "N/A")
+    await update.message.reply_text("广播消息已发送给所有用户！")
 
-    # Create message
-    message = f"📩 **New Form Submission**\n\n"
-    message += f"👤 Name: {name}\n📧 Email: {email}\n"
-    message += f"🆔 User ID: {user_id}\n👤 Username: @{username}\n"
-    message += f"📝 First Name: {first_name}"
+# Main function to start bot
+async def run_bot():
+    """Start the bot correctly in an async event loop"""
+    app = Application.builder().token(TOKEN).build()
 
-    # Send message to Telegram
-    bot.send_message(chat_id=CHAT_ID, text=message, parse_mode="Markdown")
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("broadcast", broadcast))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, start))
 
-    return {"status": "success", "message": "Data sent to Telegram"}
-
+    logger.info("Bot is running...")
+    await app.run_polling()
 
 if __name__ == "__main__":
-    # Set webhook (optional)
-    bot.setWebhook(url="https://telegrambot-n4a3.onrender.com")
-
-    # Start the bot using Flask
-    app.run(host="0.0.0.0", port=5000)
+    import asyncio
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(run_bot())
+        loop.run_forever()
+    except RuntimeError:
+        asyncio.run(run_bot())
